@@ -2,7 +2,7 @@
 
     lightweightNeuralNetwork.hpp
 
-    This file is part of Clap Recognition Using a Neural Network from Scratch (C++ for Arduino): https://github.com/BojanJurca/Fully-connected-Neural-Network
+    This file is part of Clap Recognition Using a Neural Network from Scratch (C++ for Arduino): https://github.com/BojanJurca/Lightweight-Fully-Connected-Neural-Network
 
     The neural network is implemented as a C++ variadic template. This approach was chosen to simplify both the usage 
     of the library and the modification of the network topology, making it as intuitive and flexible as possible.
