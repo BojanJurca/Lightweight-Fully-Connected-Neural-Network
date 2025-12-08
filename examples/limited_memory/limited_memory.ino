@@ -1,10 +1,9 @@
 #include <array.hpp>
 #include <iostream.hpp>
+#include <lightweightNeuralNetwork.hpp>
 
 
 // ----- the neural network -----
-
-    #include "neuralNetwork.hpp"
     
     //                           .--- the number inputs
     //                           |      .--- the first layer activation function (Sigmoid, ReLU, Tanh, FastTanh)
