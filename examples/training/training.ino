@@ -7,10 +7,16 @@
 #ifdef ARDUINO                  // Arduino build requires LightwaightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
     #include <array.hpp>
     #include <iostream.hpp>
+    #include <lightweightNeuralNetwork.hpp>
+    #define srand(X) randomSeed(X)
+    #ifdef ARDUINO_ARCH_AVR     // Arduino AVR
+        unsigned long time (void *p) { return millis (); } // introduce time function only for the purpose of srand (time (NULL)) would work on AVR boards as well
+    #endif
 #else                           // standard C++ build
     #include <array>
     #include <iostream>
     #include <iomanip>
+    #include "lightweightNeuralNetwork.hpp"
     using namespace std;
     void setup ();
     void loop ();
@@ -20,8 +26,6 @@
 
 
 // ----- the neural network -----
-
-    #include "neuralNetwork.hpp"
     
     //                   .--- the number inputs
     //                   |      .--- the first layer activation function (Sigmoid, ReLU, Tanh, FastTanh)
