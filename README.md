@@ -1,4 +1,4 @@
-# neuralNetwork.hpp – Lightweight Neural Network Library for Arduino
+# Lightweight Neural Network Library for Arduino
 
 A minimalistic implementation of a fully connected neural network designed for **Arduino controllers** (including AVR) and other **Arduino‑compatible platforms**. The library uses **no heap memory**, making it ideal for devices with very limited resources.
 
@@ -26,14 +26,14 @@ The library relies on [LightweightSTL](https://github.com/) to ensure compatibil
 
 ### Installation
 
-1. Add `neuralNetwork.hpp` to your project.  
+1. Add `lightweightNeuralNetwork.hpp` to your project.  
 2. Install **LightweightSTL**.  
 
 
 ### Example
 
 ```cpp
-#include "neuralnetwork.hpp"
+#include "lightweightNeuralnetwork.hpp"
 
 // Define a network: 8 inputs → hidden layer with 16 neurons (ReLU) → output layer with 2 neurons (Sigmoid)
 neuralNetworkLayer_t<8, ReLU, 16, Sigmoid, 2> neuralNetwork;
