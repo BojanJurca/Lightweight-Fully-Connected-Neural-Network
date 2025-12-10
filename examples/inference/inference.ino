@@ -1,5 +1,5 @@
-#include <array.hpp>
-#include <iostream.hpp>
+#include <array.hpp>        // lightwaightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
+#include <iostream.hpp>     // lightwaightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
 #include <lightweightNeuralNetwork.hpp>
 
 
