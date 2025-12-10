@@ -27,7 +27,7 @@ The library relies on [LightweightSTL](https://github.com/) to ensure compatibil
 ### Installation
 
 1. Add `lightweightNeuralNetwork.hpp` to your project.  
-2. Install **LightweightSTL**.  
+2. Install **lightweightSTL**.  
 
 
 ### Example
@@ -84,11 +84,12 @@ Backward propagation: update weights and biases using gradient descent
 
 Initialization methods: Xavier (for Sigmoid/Tanh) and He (for ReLU)
 
-Random values generated via Box‑Muller transform
+Random values generated via Box-Muller transform
 
 
 
 ### 📊 Typical Use Cases
+
 Classifying sensor data or input patterns
 
 Running lightweight ML models on microcontrollers
