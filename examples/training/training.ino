@@ -4,9 +4,9 @@
 
 
 // platform abstraction 
-#ifdef ARDUINO                  // Arduino build requires LightwaightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
-    #include <array.hpp>
-    #include <iostream.hpp>
+#ifdef ARDUINO                  // Arduino build requires lightwaightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
+    #include <array.hpp>        // lightwaightSTL
+    #include <iostream.hpp>     // lightwaightSTL
     #include <lightweightNeuralNetwork.hpp>
     #define srand(X) randomSeed(X)
     #ifdef ARDUINO_ARCH_AVR     // Arduino AVR
