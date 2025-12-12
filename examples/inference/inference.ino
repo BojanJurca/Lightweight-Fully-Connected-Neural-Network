@@ -1,6 +1,6 @@
-#include <array.hpp>        // lightwaightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
-#include <iostream.hpp>     // lightwaightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
-#include <lightweightNeuralNetwork.hpp>
+#include <array.hpp>        // LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
+#include <iostream.hpp>     // LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
+#include <LightweightNeuralNetwork.hpp>
 
 
 // ----- the neural network -----
