@@ -17,7 +17,7 @@ A minimalistic implementation of a fully connected neural network designed for *
 
 ## 📦 Dependencies
 
-The library relies on [LightweightSTL](https://github.com/) to ensure compatibility with standard C++.
+The library relies on [LightweightSTL](https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino) to ensure compatibility with standard C++.
 
 ---
 
@@ -26,14 +26,14 @@ The library relies on [LightweightSTL](https://github.com/) to ensure compatibil
 
 ### Installation
 
-1. Add `lightweightNeuralNetwork.hpp` to your project.  
-2. Install **lightweightSTL**.  
+1. Add `LightweightNeuralNetwork.hpp` to your project.  
+2. Install **LightweightSTL**.  
 
 
 ### Example
 
 ```cpp
-#include "lightweightNeuralnetwork.hpp"
+#include "LightweightNeuralnetwork.hpp"
 
 // Define a network: 8 inputs → hidden layer with 16 neurons (ReLU) → output layer with 2 neurons (Sigmoid)
 neuralNetworkLayer_t<8, ReLU, 16, Sigmoid, 2> neuralNetwork;
