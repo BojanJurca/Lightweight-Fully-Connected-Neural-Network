@@ -1,4 +1,4 @@
-# Lightweight Fully Connected Neural Network Library for Arduino
+# Lightweight Fully Connected Neural Network Arduino library
 
 A minimalistic implementation of a fully connected neural network designed for **Arduino controllers** (including AVR) and other **Arduino-compatible platforms**. The library uses **no heap memory**, making it ideal for devices with very limited resources.
 
