@@ -48,7 +48,6 @@
                 template<typename input_t>
                 output_t forwardPass (const input_t (&input) [inputCount]) const {   
                     float neuron [neuronCount];
-
                     // neuron = af (w x input + bias)
                         for (size_t n = 0; n < neuronCount; n++) {
                             neuron [n] = bias [n];
@@ -75,7 +74,7 @@
                     size_t bytesToWrite = sizeof (nn);
 
                     // int16_t
-                    os << "\n{";
+                    os << "{";
                     for (size_t i = 0; i < bytesToWrite; i += 2) {
                         int16_t v = p [i];
                         if (i + 1 < bytesToWrite) 
@@ -86,7 +85,7 @@
                     os << "} // int16_t initializer list\n";
 
                     // int32_t
-                    os << "\n{";
+                    os << "{";
                     for (size_t i = 0; i < bytesToWrite; i += 4) {
                         int32_t v = p [i];
                         if (i + 1 < bytesToWrite) 
@@ -103,6 +102,7 @@
                     return os;
                 }
 
+
                 template<size_t N>
                 quantizedNeuralNetworkLayer_t& operator = (const int (&model) [N]) {
                     constexpr size_t modelBytes = sizeof(model);
@@ -112,13 +112,11 @@
                     return *this;
                 }
 
-                quantizedNeuralNetworkLayer_t& operator = (const quantizedNeuralNetworkLayer_t& other) {
-                    if (this != &other)
-                        memcpy (this, &other, sizeof (*this));
-                    return *this;
-                }
+                quantizedNeuralNetworkLayer_t () = default;
+                quantizedNeuralNetworkLayer_t (const quantizedNeuralNetworkLayer_t&) = default;
+                quantizedNeuralNetworkLayer_t& operator = (const quantizedNeuralNetworkLayer_t&) = default;
 
-                quantizedNeuralNetworkLayer_t& operator=(const neuralNetworkLayer_t<inputCount, activationFunction, neuronCount, sizes...>& other) {
+                quantizedNeuralNetworkLayer_t& operator = (const neuralNetworkLayer_t<inputCount, activationFunction, neuronCount, sizes...>& other) {
                     float *p = (float *) &other;
                     nnQ_t *q = (nnQ_t *) this;
                     for (size_t i = 0; i < sizeof (other) / sizeof (float); i++)
@@ -173,7 +171,7 @@
                     size_t bytesToWrite = sizeof (nn);
 
                     // int16_t
-                    os << "\n{";
+                    os << "{";
                     for (size_t i = 0; i < bytesToWrite; i += 2) {
                         int16_t v = p [i];
                         if (i + 1 < bytesToWrite) 
@@ -184,7 +182,7 @@
                     os << "} // int16_t initializer list\n";
 
                     // int32_t
-                    os << "\n{";
+                    os << "{";
                     for (size_t i = 0; i < bytesToWrite; i += 4) {
                         int32_t v = p [i];
                         if (i + 1 < bytesToWrite) 
@@ -210,13 +208,11 @@
                     return *this;
                 }
 
-                quantizedNeuralNetworkLayer_t& operator = (const quantizedNeuralNetworkLayer_t& other) {
-                    if (this != &other)
-                        memcpy (this, &other, sizeof (*this));
-                    return *this;
-                }
+                quantizedNeuralNetworkLayer_t () = default;
+                quantizedNeuralNetworkLayer_t (const quantizedNeuralNetworkLayer_t&) = default;
+                quantizedNeuralNetworkLayer_t& operator = (const quantizedNeuralNetworkLayer_t&) = default;
 
-                quantizedNeuralNetworkLayer_t& operator=(const neuralNetworkLayer_t<inputCount, activationFunction, neuronCount>& other) {
+                quantizedNeuralNetworkLayer_t& operator = (const neuralNetworkLayer_t<inputCount, activationFunction, neuronCount>& other) {
                     float *p = (float *) &other;
                     nnQ_t *q = (nnQ_t *) this;
                     for (size_t i = 0; i < sizeof (other) / sizeof (float); i++)
