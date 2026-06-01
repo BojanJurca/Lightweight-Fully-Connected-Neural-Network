@@ -25,19 +25,19 @@
 
 // 1️⃣ Provide quantization data type for weights and biases, for example:
 class Q {
-    private:
-        int8_t value;
+    public:
+        int8_t raw;
+        typedef decltype(raw) raw_t;
 
         // 2️⃣ Define quantization data type range
-        static constexpr float MAX_ABS_Q_VAL = 4.0f; // all inputs to quantization are expected to be in [-MAX_ABS_Q_VAL .. MAX_ABS_Q_VAL] 
+        static constexpr float scale = 4.0f / 128.f;
 
-    public:
         // basic constructor
-        __attribute__((always_inline)) inline Q () : value (0) {}
+        __attribute__((always_inline)) inline Q () : raw (0) {}
 
         // constructor from any arithmetic type
         template<typename T> __attribute__((always_inline)) inline Q (T x) {
-            int16_t t = (int16_t) (x * 32); // 32 = (128.0f / MAX_ABS_Q_VAL)
+            int16_t t = (int16_t) (x * scale);
             if (t > 127) {
                 t = 127;
                 cout << "quantization OVERFLOW!\n";
@@ -45,17 +45,19 @@ class Q {
                 t = -128;
                 cout << "quantization UNDERFLOW\n";
             }
-            value = (int8_t) t;
+            raw = (int8_t) t;
+            return;
         }
 
         // conversion back to float
         __attribute__((always_inline)) inline operator float () const {
             // instead of simply returning 
-            // return (float) value * (4.0f / 128.0f);
+            // return (float) raw * (4.0f / 128.0f);
             // which is comprehensive but slow let's do
             // it fast and dirty way
+            // this code works for int8_t conversion into float interval [-4 .. 4]
 
-            int8_t b = value;
+            int8_t b = raw;
 
             uint16_t sign = b >> 7;
 
@@ -110,7 +112,7 @@ class Q {
 
         // = operator for any arithmetic type
         template<typename T>__attribute__((always_inline)) inline Q& operator = (const T& x) {
-            int16_t t = (int16_t) (x * 32); // 32 = (128.0f / MAX_ABS_Q_VAL)
+            int16_t t = (int16_t) (x * scale);
             if (t > 127) {
                 t = 127;
                 cout << "quantization OVERFLOW!\n";
@@ -118,16 +120,17 @@ class Q {
                 t = -128;
                 cout << "quantization UNDERFLOW\n";
             }
-            value = (int8_t) t;
+            raw = (int8_t) t;
             return *this;
         }
 
         // -= operator for any arithmetic type
         template<typename T> __attribute__((always_inline)) inline Q& operator -= (T other) {
             Q rhs {other};
-            value -= rhs.value;
+            raw -= rhs.raw;
             return *this;
         }
+
 };
 
 
@@ -141,37 +144,33 @@ neuralNetworkLayer_t<2, FastTanh, 2, /* add more layers if needed */ FastTanh, 1
 #include <QuantizedNeuralNetwork.hpp>
 quantizedNeuralNetworkLayer_t<2, FastTanh, 2, /* add more layers if needed */ FastTanh, 1> quantizedNeuralNetwork;
 
+// 6️⃣ Fine tune already quantized neural network
+
 
 void setup () {
     cinit ();
-    cout << setprecision (4) << fixed;
+    cout << fixed << setprecision (6);
+
+
+    cout << "\n----- already trained neuralNetwork -----\n\n";
+
 
     // load pre-trained neural network model
     neuralNetwork = {0x1.099fp+0f,0x1.072ed4p+0f,-0x1.14b4fcp+1f,-0x1.0ef47ep+1f,-0x1.71b4bp+0f,0x1.60bf78p-1f,-0x1.1519e4p+1f,-0x1.fdc5b8p+0f,-0x1.8f5b94p-1f};
-    // quantize the model
-    quantizedNeuralNetwork = neuralNetwork;
-    // output quantized model so we can use it later skipping the quantization from neuralNetwork ...
-    cout << "quantizedNeuralNetwork =\n" << quantizedNeuralNetwork;
-    // ... like this:
-    #ifdef ARDUINO_ARCH_AVR
-        quantizedNeuralNetwork = {8225,-16965,5842,-15941,232}; // {11308,-22876,7619,-21340,-8448}; // int16_t initializer list for AVR boards, 
-    #else
-        quantizedNeuralNetwork = {-1111810015,-1044703534,232}; // int32_t initializer list for others
-    #endif
-
-cout << "quantizedNeuralNetwork =\n" << quantizedNeuralNetwork;    
-cout << "AAAAAAAAAAAAAAAAAAAAAAAAAA\n";
-
-
-    // 6️⃣ Compare neuralNetwork and quantizedNeuralNetwork
-
-    cout << "\n----- neuralNetwork -----\n\n";
+    cout << "sizeof (neuralNetwork) = "  << sizeof (neuralNetwork) << endl;
+    // see how it works
     cout << "0 xor 0 = " << neuralNetwork.forwardPass ({0, 0}) [0] << endl;
     cout << "0 xor 1 = " << neuralNetwork.forwardPass ({0, 1}) [0] << endl;
     cout << "1 xor 0 = " << neuralNetwork.forwardPass ({1, 0}) [0] << endl;
     cout << "1 xor 1 = " << neuralNetwork.forwardPass ({1, 1}) [0] << endl;
-
-    cout << "\nsizeof (neuralNetwork) = "  << sizeof (neuralNetwork) << endl;
+    // measure loss
+    float loss = 0.f;
+    loss += pow (neuralNetwork.forwardPass ({0, 0}) [0] - 0.f, 2) / 2;
+    loss += pow (1.f - neuralNetwork.forwardPass ({0, 1}) [0], 2) / 2;
+    loss += pow (1.f - neuralNetwork.forwardPass ({1, 0}) [0], 2) / 2;
+    loss += pow (neuralNetwork.forwardPass ({1, 1}) [0] - 0.f, 2) / 2;
+    cout << "loss = " << loss << endl;
+    // measure speed
     unsigned long startMillis = millis ();
     for (int i = 0; i < 1000; i++) {
         neuralNetwork.forwardPass ({0, 0});
@@ -180,16 +179,37 @@ cout << "AAAAAAAAAAAAAAAAAAAAAAAAAA\n";
         neuralNetwork.forwardPass ({1, 1});
     }
     unsigned long endMillis = millis ();
-    cout << "\n1000 x 4 forwardPass-es: " << endMillis - startMillis << " ms\n";
+    cout << "1000 x 4 forwardPass-es: " << endMillis - startMillis << " ms\n";
 
+
+    // ----- Post Training Quantization -----
     cout << "\n----- quantizedNeuralNetwork -----\n\n";
+
+
+    // quantize the model
+    quantizedNeuralNetwork = neuralNetwork;
+    // output quantized model so we can use it later skipping the quantization from neuralNetwork ...
+    cout << "quantizedNeuralNetwork =\n" << quantizedNeuralNetwork;
+    cout << "sizeof (quantizedNeuralNetwork) = "  << sizeof (quantizedNeuralNetwork) << endl;
+    // ... like this:
+    #ifdef ARDUINO_ARCH_AVR
+        quantizedNeuralNetwork = {8225,-16965,5842,-15941,232}; // {11308,-22876,7619,-21340,-8448}; // int16_t initializer list for AVR boards, 
+    #else
+        quantizedNeuralNetwork = {-1111810015,-1044703534,232}; // int32_t initializer list for others
+    #endif
+    // see how it works
     cout << "0 xor 0 = " << quantizedNeuralNetwork.forwardPass ({0, 0}) [0] << endl;
     cout << "0 xor 1 = " << quantizedNeuralNetwork.forwardPass ({0, 1}) [0] << endl;
     cout << "1 xor 0 = " << quantizedNeuralNetwork.forwardPass ({1, 0}) [0] << endl;
     cout << "1 xor 1 = " << quantizedNeuralNetwork.forwardPass ({1, 1}) [0] << endl;
-
-    cout << "\nsizeof (quantizedNeuralNetwork) = "  << sizeof (quantizedNeuralNetwork) << endl;
-
+    // measure time
+    loss = 0.f;
+    loss += pow (quantizedNeuralNetwork.forwardPass ({0, 0}) [0] - 0.f, 2) / 2;
+    loss += pow (1.f - quantizedNeuralNetwork.forwardPass ({0, 1}) [0], 2) / 2;
+    loss += pow (1.f - quantizedNeuralNetwork.forwardPass ({1, 0}) [0], 2) / 2;
+    loss += pow (quantizedNeuralNetwork.forwardPass ({1, 1}) [0] - 0.f, 2) / 2;
+    cout << "loss = " << loss << endl;
+    // measure speed
     startMillis = millis ();
     for (int i = 0; i < 1000; i++) {
         quantizedNeuralNetwork.forwardPass ({0, 0});
@@ -198,7 +218,68 @@ cout << "AAAAAAAAAAAAAAAAAAAAAAAAAA\n";
         quantizedNeuralNetwork.forwardPass ({1, 1});
     }
     endMillis = millis ();
-    cout << "\n1000 x 4 forwardPass-es: " << endMillis - startMillis << " ms\n";
+    cout << "1000 x 4 forwardPass-es: " << endMillis - startMillis << " ms\n";
+
+
+    // ----- Fine-Tunning After Quantization -----
+    cout << "\n----- fine-tunned quantizedNeuralNetwork -----\n\n";
+
+
+    // store the best training result
+    auto bestModel = quantizedNeuralNetwork;
+    float lowestLoss = loss;
+    // treat weights and biases as raw model values
+    Q::raw_t *model = (Q::raw_t *) &quantizedNeuralNetwork;
+
+    // perform, say, 20 independent training runs starting from different random initializations, most of which will likely converge to different local minima
+    for (int t = 0; t < 20; t++) {
+        // for each model element:
+        for (unsigned int i = 0; i < sizeof (quantizedNeuralNetwork) / sizeof (Q::raw_t); i++) {
+            model [i] += 1;
+            loss = 0.f;
+            loss += pow (quantizedNeuralNetwork.forwardPass ({0, 0}) [0] - 0.f, 2) / 2;
+            loss += pow (1.f - quantizedNeuralNetwork.forwardPass ({0, 1}) [0], 2) / 2;
+            loss += pow (1.f - quantizedNeuralNetwork.forwardPass ({1, 0}) [0], 2) / 2;
+            loss += pow (quantizedNeuralNetwork.forwardPass ({1, 1}) [0] - 0.f, 2) / 2;
+            // keep track of the best model so far
+            if (loss < lowestLoss) {
+                lowestLoss = loss;
+                bestModel = quantizedNeuralNetwork;
+            } 
+            // cout << "   t = " << t << ", loss = " << loss << ", best = " << lowestLoss << endl; 
+
+            model [i] -= 2;
+            loss = 0.f;
+            loss += pow (quantizedNeuralNetwork.forwardPass ({0, 0}) [0] - 0, 2) / 2;
+            loss += pow (1 - quantizedNeuralNetwork.forwardPass ({0, 1}) [0], 2) / 2;
+            loss += pow (1 - quantizedNeuralNetwork.forwardPass ({1, 0}) [0], 2) / 2;
+            loss += pow (quantizedNeuralNetwork.forwardPass ({1, 1}) [0] - 0, 2) / 2;
+            // keep track of the best model so far           
+            if (loss < lowestLoss) {
+                lowestLoss = loss;
+                bestModel = quantizedNeuralNetwork;
+            } 
+            // cout << "   t = " << t << ", loss = " << loss << ", best = " << lowestLoss << endl; 
+
+            model [i] += 1; // restore original value
+        }
+        // cout << "   t = " << t << ", loss = " << loss << ", best = " << lowestLoss << endl; 
+    }
+
+    quantizedNeuralNetwork = bestModel;
+    cout << "best quantizedNeuralNetwork =\n" << quantizedNeuralNetwork;   
+    // see how it works 
+    cout << "0 xor 0 = " << quantizedNeuralNetwork.forwardPass ({0, 0}) [0] << endl;
+    cout << "0 xor 1 = " << quantizedNeuralNetwork.forwardPass ({0, 1}) [0] << endl;
+    cout << "1 xor 0 = " << quantizedNeuralNetwork.forwardPass ({1, 0}) [0] << endl;
+    cout << "1 xor 1 = " << quantizedNeuralNetwork.forwardPass ({1, 1}) [0] << endl;
+    // measure loss
+    loss = 0.f;
+    loss += pow (quantizedNeuralNetwork.forwardPass ({0, 0}) [0] - 0, 2) / 2;
+    loss += pow (1 - quantizedNeuralNetwork.forwardPass ({0, 1}) [0], 2) / 2;
+    loss += pow (1 - quantizedNeuralNetwork.forwardPass ({1, 0}) [0], 2) / 2;
+    loss += pow (quantizedNeuralNetwork.forwardPass ({1, 1}) [0] - 0, 2) / 2;
+    cout << "loss = " << loss << endl;
 }
 
 void loop () {
