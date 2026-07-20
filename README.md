@@ -12,6 +12,7 @@ A minimalistic implementation of a fully connected neural network designed for *
 - ✅ Activation functions: **Sigmoid**, **ReLU**, **Tanh**, **FastTanh**  
 - ✅ Built‑in **softmax normalization** for output layers  
 - ✅ Flexible topology via **C++ variadic templates**  
+- ✅ Quantization
 
 ---
 
