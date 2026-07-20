@@ -17,7 +17,7 @@
         neuralNetworkLayer_t<13, Tanh, 16, / * add more if needed * / Sigmoid, 2> neuralNetwork;
 
 
-    Bojan Jurca, Nov 26, 2025
+    Bojan Jurca, Aug 12, 2026
 
 */
 
@@ -26,7 +26,8 @@
     #define __NEURAL_NETWORK_HPP__
 
 
-    // platform abstraction 
+    // ----- platform abstraction  -----
+    
     #ifdef ARDUINO                  // Arduino build requires LightwaightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
         #include <array.hpp>
         #include <ostream.hpp>
@@ -37,10 +38,12 @@
         #include <cstring>
         #include <cmath>
         using namespace std;
+        #include <cstdint>
     #endif
+    #include <float.h>
 
 
-    // non-linear neuron activation functions and their derivatives
+    // ----- non-linear neuron activation functions and their derivatives -----
 
         #define Sigmoid 0
         #define ReLU 1
@@ -91,8 +94,12 @@
                 return 0.f;
             }
         }
+        
+        constexpr const char *afname [] = {"Sigmoid", "ReLU", "Tanh", "FastTanh"};
 
-        // random initializer
+
+        // ----- random initializer -----
+        
         float randomInitializer (size_t inputCount, size_t activationFunction, size_t neuronCount) {
             // use Box-Muller Transform to calculate normaly distributed random variable from uniformly distrubuted random function
         
@@ -119,6 +126,8 @@
                 }
         }
 
+
+    // ----- neural network -----
 
     // training
 
@@ -268,20 +277,34 @@
                     return backwardPropagation (*reinterpret_cast<const input_t (*)[inputCount]> (input.data ()), *reinterpret_cast<const expected_t (*)[outputCount]> (expected.data ()), previousLayerDelta);
                 }
 
-
                 // export the whole model as C++ initializer list
                 friend ostream& operator << (ostream& os, const neuralNetworkLayer_t& nn) {
-                    float *p = (float *) &nn;
-                    os << "{";
-                    for (size_t i = 0; i < sizeof (nn) / sizeof (float); i++) {
-                        if (i > 0) {
-                            os << ",";
-                            if (i % 10 == 0)
-                                os << endl;
+                    float Min = FLT_MAX;
+                    float Max = -FLT_MAX;
+
+                    os << "   // ----- layer inputs: " << inputCount << ", outputs (neurons): " << neuronCount << ", activation: " << afname [activationFunction] << " -----\n";
+                    os << "   //    --- weights ---\n";
+                    for (size_t n = 0; n < neuronCount; n++) {
+                        os << "         ";
+                        for (size_t i = 0; i < inputCount; i++) {
+                            os << nn.weight [n][i] << "f, ";
+                            if (nn.weight [n][i] < Min) Min = nn.weight [n][i];
+                            if (nn.weight [n][i] > Max) Max = nn.weight [n][i];
                         }
-                        os << *(p + i) << 'f';
+                        os << endl;
                     }
-                    os << "}\n";
+                    os << "   //    --- biases ---\n         ";
+                    for (size_t n = 0; n < neuronCount; n++) {
+                        os << nn.bias [n] << "f, ";
+                        if (nn.bias [n] < Min) Min = nn.bias [n];
+                        if (nn.bias [n] > Max) Max = nn.bias [n];
+                    }
+                    os << "\n   //    --- min: " << Min << ", max: " << Max << " ---";
+                    int nextPowerOfTwo = 1;
+                    while (nextPowerOfTwo < max (Max, -Min)) 
+                        nextPowerOfTwo <<= 1;
+                    os << " in case of quantization use at least Q<" << nextPowerOfTwo << ">\n";                    
+                    os << nn.nextLayer;
                     return os;
                 }
 
@@ -299,7 +322,6 @@
                     }
                     return *this;
                 }
-
         };
 
 
@@ -442,18 +464,34 @@
 
 
                 // export the whole model as C++ initializer list
-                friend ostream& operator << (ostream& os, const neuralNetworkLayer_t& nn) {
-                    float *p = (float *) &nn;
-                    os << "{";
-                    for (size_t i = 0; i < sizeof (nn) / sizeof (float); i++) {
-                        if (i > 0) {
-                            os << ",";
-                            if (i % 10 == 0)
-                                os << endl;
+                friend ostream& operator << (ostream& os, const neuralNetworkLayer_t& nn) {                   
+                    float Min = FLT_MAX;
+                    float Max = -FLT_MAX;
+
+                    os << "   // ----- layer inputs: " << inputCount << ", outputs (neurons): " << neuronCount << ", activation: " << afname [activationFunction] << " -----\n";
+                    os << "   //    --- weights ---\n";
+                    for (size_t n = 0; n < neuronCount; n++) {
+                        os << "         ";
+                        for (size_t i = 0; i < inputCount; i++) {
+                            os << nn.weight [n][i] << "f, ";
+                            if (nn.weight [n][i] < Min) Min = nn.weight [n][i];
+                            if (nn.weight [n][i] > Max) Max = nn.weight [n][i];
                         }
-                        os << *(p + i) << 'f';
+                        os << endl;
                     }
-                    os << "}\n";
+                    os << "   //    --- biases ---\n         ";
+                    for (size_t n = 0; n < neuronCount; n++) {
+                        os << nn.bias [n] << "f";
+                        if (n < neuronCount - 1)
+                            os << ", ";
+                        if (nn.bias [n] < Min) Min = nn.bias [n];
+                        if (nn.bias [n] > Max) Max = nn.bias [n];
+                    }
+                    os << "\n   //    --- min: " << Min << ", max: " << Max << " ---";
+                    int nextPowerOfTwo = 1;
+                    while (nextPowerOfTwo < max (Max, -Min)) 
+                        nextPowerOfTwo <<= 1;
+                    os << " in case of quantization use at least Q<" << nextPowerOfTwo << ">\n";
                     return os;
                 }
 
@@ -464,17 +502,17 @@
                     memcpy ((void *) this, (void *) model, N * sizeof (float));
                     return *this;
                 }
-                
+
                 neuralNetworkLayer_t& operator = (const neuralNetworkLayer_t& other) {
                     if (this != &other) {
                         memcpy (this, &other, sizeof (*this));
                     }
                     return *this;
                 }
-
         };
 
 
+    // ----- softmax -----
 
     template<size_t N, typename T>
     array<T, N> softmax (const array<T, N>& input) {
