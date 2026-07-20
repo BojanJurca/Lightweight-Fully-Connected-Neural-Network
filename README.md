@@ -1,13 +1,13 @@
-# Lightweight Fully Connected Neural Network Arduino Library
+# Thread-safe Ping Arduino Library for ESP32
 
-A minimalistic implementation of a fully connected neural network designed for **Arduino controllers** (including AVR) and other **Arduino-compatible platforms**. The library uses **no heap memory**, making it ideal for devices with very limited resources.
+A minimalistic implementation of a fully connected neural network designed for **Arduino controllers** (including AVR like Mega) and other **Arduino-compatible platforms**. The library uses **no heap memory**, making it ideal for devices with very limited resources.
 
 ---
 
 ## ✨ Features
 
 - ✅ Zero dynamic memory allocation (`malloc`/`new` free)  
-- ✅ Compatible with **AVR**, **ESP32**, standard C++ and more  
+- ✅ Compatible with **AVR** (Uno, Mega, ...), **ESP32**, standard C++ and more  
 - ✅ Train models on a computer, then deploy to Arduino  
 - ✅ Activation functions: **Sigmoid**, **ReLU**, **Tanh**, **FastTanh**  
 - ✅ Built‑in **softmax normalization** for output layers  
