@@ -1,142 +1,18 @@
-// ----- platform abstraction  -----
+#include <array.hpp>
+#include <iostream.hpp>
+#include <LightweightNeuralNetwork.hpp>
 
-#ifdef ARDUINO                  // Arduino build requires LightwaightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
-    #include <array.hpp>
-    #include <iostream.hpp>
-    #include <LightweightNeuralNetwork.hpp>
-    #define srand(X) randomSeed(X)
-    #ifdef ARDUINO_ARCH_AVR     // Arduino AVR
-        unsigned long time (void *p) { p = p; return millis (); } // introduce time function only for the purpose of srand (time (NULL)) would work on AVR boards as well
-    #endif
-#else                           // standard C++ build
-    #include <array>
-    #include <iostream>
-    #include <iomanip>
-    #include <LightweightNeuralNetwork.hpp>
-    using namespace std;
-    void setup ();
-    void loop ();
-    int main () { setup (); while (true) loop (); return 0; }        
-    #define cinit(...)          // compiles to nothing
-#endif
-
-
-// ----- quantization -----
-
-// 1️⃣ Provide quantization data type for weights and biases, for example:
-class Q {
-    private:
-        int8_t value;
-
-        // 2️⃣ Define quantization data type range
-        static constexpr float MAX_ABS_Q_VAL = 4.0f; // all inputs to quantization are expected to be in [-MAX_ABS_Q_VAL .. MAX_ABS_Q_VAL] 
-
-    public:
-        // basic constructor
-        __attribute__((always_inline)) inline Q () : value (0) {}
-
-        // constructor from any arithmetic type
-        template<typename T> __attribute__((always_inline)) inline Q (T x) {
-            int16_t t = (int16_t) (x * 32); // 32 = (128.0f / MAX_ABS_Q_VAL)
-            if (t > 127) {
-                t = 127;
-                cout << "quantization OVERFLOW!\n";
-            } else if (t < -128) {
-                t = -128;
-                cout << "quantization UNDERFLOW\n";
-            }
-            value = (int8_t) t;
-        }
-
-        // conversion back to float
-        __attribute__((always_inline)) inline operator float () const {
-            // instead of simply returning 
-            //  return (float) value * (4.0f / 128.0f);
-            // which is comprehensive but slow let's do it fast and dirty way
-
-            int8_t b = value;
-
-            uint16_t sign = b >> 7;
-
-            if (sign) {
-                b = (b ^ (b >> 7)) - (b >> 7); // fast bitwise b *= -1
-                sign = 0b1000000000000000; // align sign bit to the first place of the first 16 bits of float
-            }
-
-            uint16_t exponent;
-            uint16_t mantissa;
-
-            // the placement of the first bit set determines the exponent, all the following bits are the beginning of mantissa
-            if (b & 0b01000000) {           // 64 .. 127
-                exponent = 128 << 7;                            // exponent = 128, align it to correct place in the first 16 bits of float
-                mantissa = ((uint16_t) (b & 0b00111111)) << 1;  // mantissa is all that follows the first bit, align it to correct place in the first 16 bits of float
-            } else if (b & 0b00100000) {    // 32 .. 63
-                exponent = 127 << 7;                            // exponent = 127, align it to correct place in the first 16 bits of float
-                mantissa = ((uint16_t) (b & 0b00011111)) << 2;  // mantissa is all that follows the first bit, align it to correct place in the first 16 bits of float
-            } else if (b & 0b00010000) {    // 16 .. 31
-                exponent = 126 << 7;                            // exponent = 126, align it to correct place in the first 16 bits of float
-                mantissa = ((uint16_t) (b & 0b00001111)) << 3;  // mantissa is all that follows the first bit, align it to correct place in the first 16 bits of float
-            } else if (b & 0b00001000) {    // 8 .. 15
-                exponent = 125 << 7;                            // exponent = 125, align it to correct place in the first 16 bits of float
-                mantissa = ((uint16_t) (b & 0b00000111)) << 4;  // mantissa is all that follows the first bit, align it to correct place in the first 16 bits of float
-            } else if (b & 0b00000100) {    // 4 .. 7
-                exponent = 124 << 7;                            // exponent = 124, align it to correct place in the first 16 bits of float
-                mantissa = ((uint16_t) (b & 0b00000011)) << 5;  // mantissa is all that follows the first bit, align it to correct place in the first 16 bits of float
-            } else if (b & 0b00000010) {    // 2, 3
-                exponent = 123 << 7;                            // exponent = 123, align it to correct place in the first 16 bits of float
-                mantissa = ((uint16_t) (b & 0b00000001)) << 6;  // mantissa is all that follows the first bit, align it to correct place in the first 16 bits of float
-            } else if (b & 0b00000001) {    // 1
-                exponent = 122 << 7;                            // = exponent = 122, align it to correct place in the first 16 bits of float
-                mantissa = 0;
-            } else {                        // 0
-                exponent = 0;
-                mantissa = 0;
-            }
-
-            // construct 32 bits of float
-            struct __attribute__((packed)) fBits_t {
-                uint16_t bits2; // LSB (little endian puts LSB in front of MSB) - last 16 bits of mantissa are always 0
-                uint16_t bits1; // MSB - sign (1 bit), exponet (8 bits), first 7 bits of mantissa
-            };
-            union {
-                fBits_t fBits;
-                float f;
-            } u;
-
-            u.fBits = {0, (uint16_t) (sign | exponent | mantissa)};
-            return u.f;
-        }
-
-        // = operator for any arithmetic type
-        template<typename T>__attribute__((always_inline)) inline Q& operator = (const T& x) {
-            int16_t t = (int16_t) (x * 32); // 32 = (128.0f / MAX_ABS_Q_VAL)
-            if (t > 127) {
-                t = 127;
-                cout << "quantization OVERFLOW!\n";
-            } else if (t < -128) {
-                t = -128;
-                cout << "quantization UNDERFLOW\n";
-            }
-            value = (int8_t) t;
-            return *this;
-        }
-
-        // -= operator for any arithmetic type
-        template<typename T> __attribute__((always_inline)) inline Q& operator -= (T other) {
-            Q rhs {other};
-            value -= rhs.value;
-            return *this;
-        }
-};
-
-
-// 3️⃣ Tell quantizedNeuralNetwork_t to use this data type for weights and biases
-#define nnQ_t Q
-
-// 4️⃣ Suppose we have already trained neural network
+// 1️⃣ Suppose we have already trained neural network
 neuralNetworkLayer_t<2, FastTanh, 2, /* add more layers if needed */ FastTanh, 1> neuralNetwork;
 
-// 5️⃣ Quantize neuralNetwork
+// 2️⃣ Tell quantizedNeuralNetwork_t which data type to use to quantize weights and biases
+// Uniform 8‑bit quantization with dynamic range N; N = 1, 2, 4, 8, ...
+// Q<1> → uniform 8‑bit quantization, range = [-1, +1)
+// Q<2> → uniform 8‑bit quantization, range = [-2, +2)
+// ...
+#define Quant Q<8> // experiment with which quantization works best for you: Q<1>, Q<2>, Q<4>, Q<8>, ...
+
+// 3️⃣ Define quantizedNeuralNetwork with the same sructure as original neuralNetwork
 #include <QuantizedNeuralNetwork.hpp>
 quantizedNeuralNetworkLayer_t<2, FastTanh, 2, /* add more layers if needed */ FastTanh, 1> quantizedNeuralNetwork;
 
@@ -145,23 +21,40 @@ void setup () {
     cinit ();
     cout << setprecision (4) << fixed;
 
-    // load pre-trained neural network model
-    neuralNetwork = {0x1.099fp+0f,0x1.072ed4p+0f,-0x1.14b4fcp+1f,-0x1.0ef47ep+1f,-0x1.71b4bp+0f,0x1.60bf78p-1f,-0x1.1519e4p+1f,-0x1.fdc5b8p+0f,-0x1.8f5b94p-1f};
-    // quantize the model
+    // 4️⃣ load pre-trained neural network model
+    neuralNetwork = {
+    // ----- layer inputs: 2, outputs (neurons): 2, activation: FastTanh -----
+    //    --- weights ---
+            1.0376f, 1.0281f, 
+            -2.1618f, -2.1168f, 
+    //    --- biases ---
+            -1.4442f, 0.6890f, 
+    //    --- min: -2.1618, max: 1.0376 --- in case of quantization use at least Q<4>
+    // ----- layer inputs: 2, outputs (neurons): 1, activation: FastTanh -----
+    //    --- weights ---
+            -2.1649f, -1.9913f, 
+    //    --- biases ---
+            -0.7800f
+    //    --- min: -2.1649, max: -0.7800 --- in case of quantization use at least Q<4>
+    };
+
+    // 5️⃣ quantize the model
     quantizedNeuralNetwork = neuralNetwork;
     // output quantized model so we can use it later skipping the quantization from neuralNetwork ...
-    cout << "quantizedNeuralNetwork =\n" << quantizedNeuralNetwork;
+    cout << "quantizedNeuralNetwork = {" << quantizedNeuralNetwork << "};\n";
     // ... like this:
-    #ifdef ARDUINO_ARCH_AVR
-        quantizedNeuralNetwork = {8225,-16965,5842,-15941,232}; // {11308,-22876,7619,-21340,-8448}; // int16_t initializer list for AVR boards, 
-    #else
-        quantizedNeuralNetwork = {-1111810015,-1044703534,232}; // int32_t initializer list for others
-    #endif
+    quantizedNeuralNetwork = {
+        #ifdef ARDUINO_ARCH_AVR // int16_t initializer list
+            4112,-8226,3049,-7714,244
+        #else // int32_t initializer list
+            -539095024,-505541655,244
+        #endif
+    };    
 
 
     // 6️⃣ Compare output of neuralNetwork with output of quantizedNeuralNetwork
 
-    cout << "\n----- neuralNetwork -----\n\n";
+    cout << "\n----- test neuralNetwork -----\n";
     float output;
     float error;
     float loss = 0;
@@ -174,9 +67,10 @@ void setup () {
     cout << "1 xor 0 = " << output << endl;
     output = neuralNetwork.forwardPass ({1, 1}) [0];    error = pow (output - 0, 2) / 2;    loss += error;
     cout << "1 xor 1 = " << output << endl;
-    cout << "----- loss of neuralNetwork = " << loss << " -----\n";
+    cout << "loss = " << loss << endl;
 
-    cout << "\nsizeof (neuralNetwork) = "  << sizeof (neuralNetwork) << endl;
+    cout << "sizeof (neuralNetwork) = "  << sizeof (neuralNetwork) << endl;
+
     unsigned long startMillis = millis ();
     for (int i = 0; i < 1000; i++) {
         neuralNetwork.forwardPass ({0, 0});
@@ -188,7 +82,7 @@ void setup () {
     cout << "\n1000 x 4 forwardPass-es: " << endMillis - startMillis << " ms\n";
 
 
-    cout << "\n----- quantizedNeuralNetwork -----\n\n";
+    cout << "\n----- test quantizedNeuralNetwork -----\n";
     loss = 0;
 
     output = quantizedNeuralNetwork.forwardPass ({0, 0}) [0];    error = pow (output - 0, 2) / 2;    loss += error;
@@ -199,9 +93,10 @@ void setup () {
     cout << "1 xor 0 = " << output << endl;
     output = quantizedNeuralNetwork.forwardPass ({1, 1}) [0];    error = pow (output - 0, 2) / 2;    loss += error;
     cout << "1 xor 1 = " << output << endl;
-    cout << "----- loss of quantizedNeuralNetwork = " << loss << " -----\n";
+    cout << "loss = " << loss << endl;
 
     cout << "\nsizeof (quantizedNeuralNetwork) = "  << sizeof (quantizedNeuralNetwork) << endl;
+
     startMillis = millis ();
     for (int i = 0; i < 1000; i++) {
         quantizedNeuralNetwork.forwardPass ({0, 0});
@@ -226,9 +121,13 @@ void setup () {
     output = quantizedNeuralNetwork.forwardPass ({0, 1}) [0];    error = pow (output - 1, 2) / 2;    loss += error;
     output = quantizedNeuralNetwork.forwardPass ({1, 0}) [0];    error = pow (output - 1, 2) / 2;    loss += error;
     output = quantizedNeuralNetwork.forwardPass ({1, 1}) [0];    error = pow (output - 0, 2) / 2;    loss += error;
-    cout << "----- current loss = " << loss << " -----\n";    
+    cout << "current loss = " << loss << endl;    
 
-    for (int s = 0; s < 10; s ++) { // repeat tunning steps for example 10 times
+
+    constexpr float learningStep = 0.0004; // experiment with learningStep (so that the loss decreases throu the steps to its minimum)
+
+    for (int ts = 0; ts < 10; ts++) { // experiment with how many tunning steps work for you
+        cout << "----- tunning step " << ts << " -----\n";    
         // estimate gradient
         for (int i = 0; i < N; i++) {
             gradient [i] = 0;
@@ -257,10 +156,11 @@ void setup () {
         }
 
         cout << "gradient = "; for (int i = 0; i < N; i ++) cout << gradient [i] << " "; cout << endl;
-
-        constexpr float learningStep = 0.001; // choose what works for you the best (so that the loss only decreases throu the steps)
         
+        cout << "parameters changed:";
+
         for (int i = 0; i < N; i ++) {
+            int8_t oldValue = parameter [i];
             int newValue = (int) parameter [i] - gradient [i] * learningStep;
             if (newValue > 127) {
                 cout << "post-quantization fine-tunning OVERFLOW!\n";
@@ -271,7 +171,11 @@ void setup () {
                 newValue = -128;
             }
             parameter [i] = (int8_t) newValue;
+            
+            if (oldValue != parameter [i])
+                cout << " " << i;
         }
+        cout << endl;
 
         // calculate current loss
         loss = 0;
@@ -279,11 +183,11 @@ void setup () {
         output = quantizedNeuralNetwork.forwardPass ({0, 1}) [0];    error = pow (output - 1, 2) / 2;    loss += error;
         output = quantizedNeuralNetwork.forwardPass ({1, 0}) [0];    error = pow (output - 1, 2) / 2;    loss += error;
         output = quantizedNeuralNetwork.forwardPass ({1, 1}) [0];    error = pow (output - 0, 2) / 2;    loss += error;
-        cout << "----- step " << s << " loss = " << loss << " -----\n";    
+        cout << "new loss = " << loss << endl;    
     }
 
     // output the tunned model
-    cout << "quantizedNeuralNetwork =\n" << quantizedNeuralNetwork;
+    cout << "\nfine-tunned quantizedNeuralNetwork /* after fine tunning */ = {" << quantizedNeuralNetwork << "};\n";
 }
 
 void loop () {
