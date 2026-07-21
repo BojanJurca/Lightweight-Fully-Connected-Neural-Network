@@ -17,7 +17,7 @@
         neuralNetworkLayer_t<13, Tanh, 16, / * add more if needed * / Sigmoid, 2> neuralNetwork;
 
 
-    Bojan Jurca, Aug 12, 2026
+    Bojan Jurca, Aug 12, 202
 
 */
 
@@ -45,16 +45,37 @@
 
     // ----- non-linear neuron activation functions and their derivatives -----
 
-        #define Sigmoid 0
-        #define ReLU 1
-        #define Tanh 2
-        #define FastTanh 3
+        static constexpr size_t Sigmoid      = 0;
+        static constexpr size_t FastSigmoid  = 1;
+        static constexpr size_t HardSigmoid  = 2;
+        static constexpr size_t PQSigmoid    = 3; // Piecewise Quadratic Sigmoid 
+        static constexpr size_t ReLU         = 4;
+        static constexpr size_t Tanh         = 5;
+        static constexpr size_t FastTanh     = 6;
+        static constexpr size_t PQTanh       = 7; // Piecewise Quadratic Tanh 
 
         // neuron activation function (Sigmoid, ReLU, Tanh or FastTanh)
         template <size_t activationFunction>
         float af (float x) {
             if (activationFunction == Sigmoid) {
                 return 1.f / (1.f + exp (-x)); // Sigmoid
+            } else if (activationFunction == FastSigmoid) { // sigmoid approximation for faster calculation
+                return 0.5f * (x / (1.0f + fabs (x)) + 1.0f);
+            } else if (activationFunction == HardSigmoid) { // sigmoid approximation for faster calculation
+                if (x <= -2.5) return 0.0;
+                if (x >=  2.5) return 1.0;
+                return 0.2 * x + 0.5;
+            } else if (activationFunction == PQSigmoid) { // sigmoid approximation for faster calculation
+                if (x <= -2.0f) return 0.0f;
+                if (x < 0.0f) { 
+                    float t = x + 2.0f;
+                    return t * t * 0.125f; // /8
+                }
+                if (x < 2.0f) {
+                    float t = 2.0f - x;
+                    return 1.0f - t * t * 0.125f; // /8
+                }
+                return 1.0f;                
             } else if (activationFunction == ReLU) {
                 return x <= 0.f ? 0.f : x; // ReLU
             } else if (activationFunction == Tanh) {
@@ -66,9 +87,19 @@
                 if (x > 3) return 1;
                 float x2 = x * x;
                 return x * (27 + x2) / (27 + 9 * x2);
+            } else if (activationFunction == PQTanh) { // tanh approximation for faster calculation
+                if (x <= -2) return -1;
+                if (x >=  2) return  1;
+                if (x < 0) {
+                    float t = x + 2;
+                    return -1 + 0.25f * t * t;
+                } else {
+                    float t = 2 - x;
+                    return  1 - 0.25f * t * t;
+                }
             } else {
-                static_assert (activationFunction < 4, "Unsupported activation function");
-                return 0.f;
+                // static_assert (true, "Unsupported activation function");
+                return 0.f; // fallback, shouldn't happen
             }
         }
         
@@ -77,7 +108,17 @@
         float af_derivative (float x) {
             if (activationFunction == Sigmoid) {
                 float s = af<Sigmoid> (x);
-                return s * (1 - s); // Sigmoid'
+                return s * (1 - s); // sigmoid'
+            } else if (activationFunction == FastSigmoid) { // sigmoid' approximation for faster calculation
+                float t = 1.0f + fabsf(x);
+                return 0.5f / (t * t);
+            } else if (activationFunction == HardSigmoid) { // sigmoid' approximation for faster calculation
+                return (x > -2.5f && x < 2.5f) ? 0.2f : 0.0f;
+            } else if (activationFunction == PQSigmoid) { // sigmoid' approximation for faster calculation
+                if (x <= -2.0f) return 0.0f;
+                if (x < 0.0f) return (x + 2.0f) * 0.25f;
+                if (x < 2.0f)   return (2.0f - x) * 0.25f;
+                return 0.0f;
             } else if (activationFunction == ReLU) {
                 return x <= 0.f ? 0.f : 1.f; // ReLU'
             } else if (activationFunction == Tanh) {
@@ -89,13 +130,19 @@
                 if (x < -3 || x > 3) return 0.0f;
                 float x2 = x * x;
                 return (x2 - 9) * (x2 -9) / (9 * (x2 + 3) * (x2 + 3));
+            } else if (activationFunction == PQTanh) { // tanh' approximation for faster calculation
+                if (x <= -2 || x >= 2) return 0;
+                if (x < 0)
+                    return 0.5f * (x + 2);
+                else
+                    return 0.5f * (2 - x);
             } else {
-                static_assert (activationFunction < 4, "Unsupported activation function");
-                return 0.f;
+                // static_assert (false, "Unsupported activation function");
+                return 0.f; // fallback, shouldn't happen
             }
         }
         
-        constexpr const char *afname [] = {"Sigmoid", "ReLU", "Tanh", "FastTanh"};
+        constexpr const char *afname [] = {"Sigmoid", "FastSigmoid", "HardSigmoid", "PQSigmoid", "ReLU", "Tanh", "FastTanh", "PQTanh"};
 
 
         // ----- random initializer -----
@@ -112,16 +159,14 @@
                 // float N2 = sqrt (-2 * log (U1)) * sin (2 * M_PI * U2); // we don't actually need the second independent random variable here
         
             // apply the desired mean and variance
-                if (activationFunction == Sigmoid) {
+                if (activationFunction == Sigmoid || activationFunction == FastSigmoid || activationFunction == HardSigmoid || activationFunction == PQSigmoid) {
                     return 0 + sqrt (2.0 / (inputCount + neuronCount)) * N1;    // Xavier (Glorot)
                 } else if (activationFunction == ReLU) {
                     return 0 + sqrt (2.0 / inputCount) * N1;                    // He
-                } else if (activationFunction == Tanh) {    
-                    return 0 + sqrt (2.0 / (inputCount + neuronCount)) * N1;    // Xavier (Glorot)
-                } else if (activationFunction == FastTanh) {    
+                } else if (activationFunction == Tanh || activationFunction == FastTanh || activationFunction == PQTanh) {    
                     return 0 + sqrt (2.0 / (inputCount + neuronCount)) * N1;    // Xavier (Glorot)
                 } else {
-                    // static_assert (activationFunction < 4, "Unsupported activation function");
+                    // static_assert (activationFunction < 6, "Unsupported activation function");
                     return sqrtf (1.0f / inputCount) * N1;
                 }
         }
