@@ -9,9 +9,9 @@
     //                   |      .--- the first layer activation function (Sigmoid, ReLU, Tanh, FastTanh)
     //                   |      |     .--- the number of neurons in the first layer
     //                   |      |     |                                      .--- output layer activation function (Sigmoid, ReLU, Tanh, FastTanh)
-    //                   |      |     |                                      |     .--- the number of neurons in the output layer = the number of outputs
-    //                   |      |     |                                      |     |
-    neuralNetworkLayer_t<2, FastTanh, 2, /* add more layers if needed */ FastTanh, 1> neuralNetwork;
+    //                   |      |     |                                      |        .--- the number of neurons in the output layer = the number of outputs
+    //                   |      |     |                                      |        |
+    neuralNetworkLayer_t<2, FastTanh, 2, /* add more layers if needed */ FastSigmoid, 1> neuralNetwork;
     // at this point neuralNetwork is initialized with random weights and biases and it is ready for training
     // - you can either start training it and export the trained model when fiished
     // - or you can load already trained model that is cappable of making usable outputs 
@@ -22,7 +22,21 @@ void setup () {
     cinit ();
 
     // load pre-trained model
-    neuralNetwork = {0x1.099fp+0f,0x1.072ed4p+0f,-0x1.14b4fcp+1f,-0x1.0ef47ep+1f,-0x1.71b4bp+0f,0x1.60bf78p-1f,-0x1.1519e4p+1f,-0x1.fdc5b8p+0f,-0x1.8f5b94p-1f};
+    neuralNetwork = {
+        // ----- layer inputs: 2, outputs (neurons): 2, activation: FastTanh -----
+        //    --- weights ---
+            -4.4286f, -4.4286f, 
+            3.8355f, 3.8355f, 
+        //    --- biases ---
+            2.1577f, -5.6935f, 
+        //    --- min: -5.6935, max: 3.8355 --- in case of quantization use at least Q<8>
+        // ----- layer inputs: 2, outputs (neurons): 1, activation: FastSigmoid -----
+        //    --- weights ---
+            -10.2262f, -10.2330f, 
+        //    --- biases ---
+            -9.0623f
+        //    --- min: -10.2330, max: -9.0623 --- in case of quantization use at least Q<16>
+    };
 
     cout << "the neural network is trained and ready\n\n";
     cout << fixed << setprecision (6);
