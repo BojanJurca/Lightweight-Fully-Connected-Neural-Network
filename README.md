@@ -1,15 +1,15 @@
-# Thread-safe Ping Arduino Library for ESP32
+# Lightweight Fully Connected Neural Network Arduino Library
 
-A minimalistic implementation of a fully connected neural network designed for **Arduino controllers** (including AVR like Mega) and other **Arduino-compatible platforms**. The library uses **no heap memory**, making it ideal for devices with very limited resources.
+A minimalistic implementation of a fully connected neural network designed for **Arduino controllers** (including AVR (Uno, Mega)) and other **Arduino-compatible platforms**. The library uses **no heap memory**, making it ideal for devices with very limited resources.
 
 ---
 
 ## ✨ Features
 
 - ✅ Zero dynamic memory allocation (`malloc`/`new` free)  
-- ✅ Compatible with **AVR** (Uno, Mega, ...), **ESP32**, standard C++ and more  
+- ✅ Compatible with **AVR** (Uno, Mega), **ESP32**, standard C++ and more  
 - ✅ Train models on a computer, then deploy to Arduino  
-- ✅ Activation functions: **Sigmoid**, **ReLU**, **Tanh**, **FastTanh**  
+- ✅ Activation functions: **Sigmoid**, **Fast Sigmoid**, **Hard Sigmoid**, **Piecewise Quadratic Sigmoid**, **ReLU**, **Tanh**, **Fast Tanh**, **Piecewise Quadratic Tanh**   
 - ✅ Built‑in **softmax normalization** for output layers  
 - ✅ Flexible topology via **C++ variadic templates**  
 - ✅ Quantization
@@ -34,7 +34,7 @@ The library relies on [LightweightSTL](https://github.com/BojanJurca/Lightweight
 ### Example
 
 ```cpp
-#include "LightweightNeuralnetwork.hpp"
+#include <LightweightNeuralnetwork.hpp>
 
 // Define a network: 8 inputs → hidden layer with 16 neurons (ReLU) → output layer with 2 neurons (Sigmoid)
 neuralNetworkLayer_t<8, ReLU, 16, Sigmoid, 2> neuralNetwork;
@@ -42,7 +42,7 @@ neuralNetworkLayer_t<8, ReLU, 16, Sigmoid, 2> neuralNetwork;
 void setup() {
     cinit(); // instead of Serial.begin()
 
-    // Import a pre‑trained model (C++ initializer list)
+    // Import a pre-trained model (C++ initializer list)
     neuralNetwork = {0x1.099fp+0f, -0x1.14b4fcp+1f, ...};
 
     // Run inference
@@ -100,9 +100,9 @@ Experimenting with neural networks without large frameworks
 
 ### ⚠️ Notes
 
-Training on Arduino is limited – prefer training on a PC.
+Training on Arduino is limited - prefer training on a PC.
 
-Beware of overfitting – more training does not always mean better accuracy.
+Beware of overfitting - more training does not always mean better accuracy.
 
 
 ### 📚 References
