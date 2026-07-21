@@ -16,7 +16,7 @@
     #include <array>
     #include <iostream>
     #include <iomanip>
-    #include "LightweightNeuralNetwork.hpp"
+    #include <LightweightNeuralNetwork.hpp>
     using namespace std;
     void setup ();
     void loop ();
@@ -31,9 +31,9 @@
     //                   |      .--- the first layer activation function (Sigmoid, ReLU, Tanh, FastTanh)
     //                   |      |     .--- the number of neurons in the first layer
     //                   |      |     |                                      .--- output layer activation function (Sigmoid, ReLU, Tanh, FastTanh)
-    //                   |      |     |                                      |     .--- the number of neurons in the output layer = the number of outputs
-    //                   |      |     |                                      |     |
-    neuralNetworkLayer_t<2, FastTanh, 2, /* add more layers if needed */ FastTanh, 1> neuralNetwork;
+    //                   |      |     |                                      |        .--- the number of neurons in the output layer = the number of outputs
+    //                   |      |     |                                      |        |
+    neuralNetworkLayer_t<2, FastTanh, 2, /* add more layers if needed */ FastSigmoid, 1> neuralNetwork;
     // at this point neuralNetwork is initialized with random weights and biases and it is ready for training
     // - you can either start training it and export the trained model when fiished
     // - or you can load already trained model that is cappable of making usable outputs 
@@ -42,7 +42,7 @@
 void setup () {
 
     cinit ();
-    cout << fixed << setprecision (6);
+    cout << fixed << setprecision (4);
     
     // store the best training result
     float lowestLoss = 1.0f / 0.0f;
@@ -52,7 +52,7 @@ void setup () {
     for (int t = 0; t < 20; t++) {
 
         // perform, say, 10000 (= epoch) gradient descent iterations to reach a local minimum
-        for (int e = 0; e < 10000; e++) {
+        for (long e = 0; e < 1000000; e++) {
             float loss = 0.0f;
 
             // backwardPropagation returns the output-layer error, computed as the
@@ -84,7 +84,7 @@ void setup () {
 
     // restore the best model
     neuralNetwork = bestModel;
-    cout << "the best model = " << hexfloat << neuralNetwork << fixed << endl << endl; // for example: {0x1.0cf11ap+1f,0x1.fac59cp+0f,0x1.01d206p+0f,0x1.f5a018p-1f,-0x1.3e38c2p-1f,-0x1.5fe124p+0f,0x1.121f7cp+1f,-0x1.25b456p+1f,-0x1.bf2034p-1f}
+    cout << "the best model = {\n" << neuralNetwork << "};\n"; // for example: {0x1.0cf11ap+1f,0x1.fac59cp+0f,0x1.01d206p+0f,0x1.f5a018p-1f,-0x1.3e38c2p-1f,-0x1.5fe124p+0f,0x1.121f7cp+1f,-0x1.25b456p+1f,-0x1.bf2034p-1f}
 
 
     cout << "the neural network is trained and ready\n\n";
@@ -99,8 +99,8 @@ void setup () {
     cout << "1 xor 1 = " << neuralNetwork.forwardPass ({1, 1}) [0] << endl;
 }
 
-
 void loop () {
-
+    #ifndef ARDUINO 
+        exit (0);
+    #endif
 }
-
